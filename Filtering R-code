@@ -1,0 +1,136 @@
+#MSc Bitcoin Filtering
+library(readxl)
+library(HiddenMarkov)
+library(hsmm)
+library(moments)
+library(ggplot2)
+library(tseries)
+library(dplyr)
+######
+#Download the data from https://finance.yahoo.com/quote/BTC-USD/history?p=BTC-USD
+#In excel compute the daily log return which is referred to as "LogReturn" hereafter.
+
+BTCUSD_new <- read_excel("INSERT EXCEL NAME.xlsx")
+data1<-as.data.frame(BTCUSD_new)
+#consider data from 2016/01/01-2019/01/03
+data1<-filter(data1,Date>='2016-01-01')
+
+par(mfrow=c(2,1))
+plot(data1$Date,data1$Close,type='l',main='BTC/USD close prices',ylab=expression(P[n]),xlab='Date')
+plot(data1$Date,data1$LogReturn,type='l',main='BTC/USD log returns (%)',ylab=expression(Y[n]),xlab='Date')
+
+library(moments)
+par(mfrow=c(1,1))
+hist(data1$LogReturn,breaks=100,freq=F,xlab="",main='')
+curve(dnorm(x,mean=mean(data1$LogReturn),sd=sd(data1$LogReturn)),col='red',add=T)
+summary(data1$LogReturn)
+var(data1$LogReturn)
+skewness(data1$LogReturn)
+kurtosis(data1$LogReturn)
+jarque.bera.test(data1$LogReturn)
+
+#Expanding window HiddenMarkov package EM algorithm
+#1st fit till 2016/12/31 then at each iteration add 1 time point until 2019/01/03
+traindf<-filter(data1,Date<'2017-01-01')
+tail(traindf,2)
+testdf<-filter(data1,Date>='2017-01-01')
+head(testdf,2)
+
+#4 state normal-HMM
+#initialisation
+mu1<-c()
+mu2<-c()
+mu3<-c()
+mu4<-c()
+
+sigma1<-c()
+sigma2<-c()
+sigma3<-c()
+sigma4<-c()
+
+delta1<-c()
+delta2<-c()
+delta3<-c()
+delta4<-c()
+
+a11<-c()
+a22<-c()
+a33<-c()
+a44<-c()
+nowcastglo<-c() #current Viterbi state (nowcasting)
+
+#starting values
+Pi0<-matrix(c(0.85,0.05,0.05,0.05,
+              0.05,0.85,0.05,0.05,
+              0.05,0.05,0.85,0.05,
+              0.05,0.05,0.05,0.85),4,byrow=T)
+delta0<-c(1/4,1/4,1/4,1/4)
+pm0<-list(mean=c(0.1,0.2,0.3,-0.1),sd=c(0.5,1,2.5,5))
+set.seed(1)
+mod4h_n<-dthmm(x = traindf$LogReturn,Pi = Pi0,delta = delta0,distn = 'norm',pm = pm0)
+mod4h_n<-BaumWelch(mod4h_n,bwcontrol(maxiter=1000,tol=1e-06))
+
+#enter 1st element based on training data
+mu1[1]<-mod4h_n$pm$mean[1]
+mu2[1]<-mod4h_n$pm$mean[2]
+mu3[1]<-mod4h_n$pm$mean[3]
+mu4[1]<-mod4h_n$pm$mean[4]
+
+sigma1[1]<-mod4h_n$pm$sd[1]
+sigma2[1]<-mod4h_n$pm$sd[2]
+sigma3[1]<-mod4h_n$pm$sd[3]
+sigma4[1]<-mod4h_n$pm$sd[4]
+
+delta1[1]<-mod4h_n$delta[1]
+delta2[1]<-mod4h_n$delta[2]
+delta3[1]<-mod4h_n$delta[3]
+delta4[1]<-mod4h_n$delta[4]
+
+a11[1]<-mod4h_n$Pi[1,1]
+a22[1]<-mod4h_n$Pi[2,2]
+a33[1]<-mod4h_n$Pi[3,3]
+a44[1]<-mod4h_n$Pi[4,4]
+
+nowcastglo[1]<-Viterbi(mod4h_n)[length(traindf$LogReturn)]
+
+#Start expanding window procedure
+library(tictoc)
+tic()
+for(k in 1:758){
+  set.seed(1411)
+  valdf<-c(traindf$LogReturn,testdf$LogReturn[1:k])
+  Pi0<-matrix(c(0.85,0.05,0.05,0.05,
+                0.05,0.85,0.05,0.05,
+                0.05,0.05,0.85,0.05,
+                0.05,0.05,0.05,0.85),4,byrow=T)
+  delta0<-c(1/4,1/4,1/4,1/4)
+  pm0<-list(mean=c(0.1,0.2,0.3,-0.1),sd=c(0.5,1,2.5,5))  
+  mod4h_n<-dthmm(x = valdf,Pi = Pi0,delta = delta0,distn = 'norm',pm = pm0)
+  mod4h_n<-BaumWelch(mod4h_n,bwcontrol(prt=F,maxiter=1000,tol=1e-06))
+  
+  mu1[k+1]<-mod4h_n$pm$mean[1]
+  mu2[k+1]<-mod4h_n$pm$mean[2]
+  mu3[k+1]<-mod4h_n$pm$mean[3]
+  mu4[k+1]<-mod4h_n$pm$mean[4]
+  
+  sigma1[k+1]<-mod4h_n$pm$sd[1]
+  sigma2[k+1]<-mod4h_n$pm$sd[2]
+  sigma3[k+1]<-mod4h_n$pm$sd[3]
+  sigma4[k+1]<-mod4h_n$pm$sd[4]
+  
+  delta1[k+1]<-mod4h_n$delta[1]
+  delta2[k+1]<-mod4h_n$delta[2]
+  delta3[k+1]<-mod4h_n$delta[3]
+  delta4[k+1]<-mod4h_n$delta[4]
+  
+  a11[k+1]<-mod4h_n$Pi[1,1]
+  a22[k+1]<-mod4h_n$Pi[2,2]
+  a33[k+1]<-mod4h_n$Pi[3,3]
+  a44[k+1]<-mod4h_n$Pi[4,4]
+  
+  nowcastglo[k+1]<-Viterbi(mod4h_n)[length(valdf)]
+}
+toc()
+
+#The same code applies to S&P 500 data which can also be downloaded from https://finance.yahoo.com.
+#For further information please contact the corresponding author.
