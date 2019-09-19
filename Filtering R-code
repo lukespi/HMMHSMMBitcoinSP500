@@ -130,7 +130,7 @@ for(k in 1:758){
 }
 toc()
 
-results<-data.frame(testdf$Date,testdf$Close,testdf$LogReturn,mu1[-1],mu2[-1],mu3[-1],mu4[-1],sigma1[-1],sigma2[-1],sigma3[-1],sigma4[-1],a11[-1],a22[-1],a33[-1],a44[-1],nowcastglo[-1])
+results1<-data.frame(testdf$Date,testdf$Close,testdf$LogReturn,mu1[-1],mu2[-1],mu3[-1],mu4[-1],sigma1[-1],sigma2[-1],sigma3[-1],sigma4[-1],a11[-1],a22[-1],a33[-1],a44[-1],nowcastglo[-1])
 
 #Expanding window HSMM
 #1st fit till 2016/12/31 then at each iteration add 1 time point until 2019/01/03
@@ -236,6 +236,8 @@ for(k in 1:length(testdf$LogReturn)){
                                 rd='nbinom',rd.par=mod4hs_n$para$rd)$path[length(valdf)]
 }
 toc()
+
+results2<-data.frame(testdf$Date,testdf$Close,testdf$LogReturn,mu1[-1],mu2[-1],mu3[-1],mu4[-1],sigma1[-1],sigma2[-1],sigma3[-1],sigma4[-1],r1[-1],r2[-1],r3[-1],r4[-1],pi1[-1],pi2[-1],pi3[-1],pi4[-1],nowcastglo[-1])
 
 #The same code applies to S&P 500 data which can also be downloaded from https://finance.yahoo.com.
 #For further information please contact the corresponding author.
