@@ -1,0 +1,206 @@
+#Normal-HMM sample sequence
+norm.HMM.generate_sample  <- function(ns,mod)
+{
+  mvect                    <- 1:mod$m
+  state                    <- numeric(ns)
+  state[1]                 <- sample(mvect,1,prob=mod$delta)
+  for (i in 2:ns) state[i] <- sample(mvect,1,prob=mod$gamma[state[i-1],])
+  x                        <- rnorm(ns,mod$mu[state],mod$sigma[state])
+  return(cbind(x,state))
+  }
+
+# PARAMETRIC BOOTSTRAP
+HMM.boot<-function(x,mod,nboot){
+  N<-length(x)
+  m<-4 
+  gamma0<-mod$gamma 
+  delta0<-mod$delta
+  mu0<-mod$mu
+  sigma0<-mod$sigma
+  xstar<-matrix(rep(0,times=N*nboot),nrow=N,ncol=nboot,byrow=T)
+  
+  for(i in 1:nboot){
+    print(paste0('xstar loop =',i))
+    xstar[,i]<-norm.HMM.generate_sample(ns=N,mod)[,1]
+  }
+  
+  a11<-c()
+  a12<-c()
+  a13<-c()
+  a14<-c()
+  a21<-c()
+  a22<-c()
+  a23<-c()
+  a24<-c()
+  a31<-c()
+  a32<-c()
+  a33<-c()
+  a34<-c()
+  a41<-c()
+  a42<-c()
+  a43<-c()
+  a44<-c()
+  delta1<-c()
+  delta2<-c()
+  delta3<-c()
+  delta4<-c()
+  mu1<-c()
+  mu2<-c()
+  mu3<-c()
+  mu4<-c()
+  sigma1<-c()
+  sigma2<-c()
+  sigma3<-c()
+  sigma4<-c()
+  
+  for(k in 1:nboot){
+    print(paste0('model fit loop =',k))
+    x<-xstar[,k]
+    mod4s<-norm.HMM.mle(x=x,m,mu0,sigma0,gamma0,delta0,stationary = T)
+    a11[k]<-mod4s$gamma[1,1]
+    a12[k]<-mod4s$gamma[1,2]
+    a13[k]<-mod4s$gamma[1,3]
+    a14[k]<-mod4s$gamma[1,4]
+    a21[k]<-mod4s$gamma[2,1]
+    a22[k]<-mod4s$gamma[2,2]
+    a23[k]<-mod4s$gamma[2,3]
+    a24[k]<-mod4s$gamma[2,4]
+    a31[k]<-mod4s$gamma[3,1]
+    a32[k]<-mod4s$gamma[3,2]
+    a33[k]<-mod4s$gamma[3,3]
+    a34[k]<-mod4s$gamma[3,4]
+    a41[k]<-mod4s$gamma[4,1]
+    a42[k]<-mod4s$gamma[4,2]
+    a43[k]<-mod4s$gamma[4,3]
+    a44[k]<-mod4s$gamma[4,4]
+    delta1[k]<-mod4s$delta[1]
+    delta2[k]<-mod4s$delta[2]
+    delta3[k]<-mod4s$delta[3]
+    delta4[k]<-mod4s$delta[4]
+    mu1[k]<-mod4s$mu[1]
+    mu2[k]<-mod4s$mu[2]
+    mu3[k]<-mod4s$mu[3]
+    mu4[k]<-mod4s$mu[4]
+    sigma1[k]<-mod4s$sigma[1]
+    sigma2[k]<-mod4s$sigma[2]
+    sigma3[k]<-mod4s$sigma[3]
+    sigma4[k]<-mod4s$sigma[4]
+  }
+  para.df<-cbind(a11,a12,a13,a14,
+                         a21,a22,a23,a24,
+                         a31,a32,a33,a34,
+                         a41,a42,a43,a44,
+                         delta1,delta2,delta3,delta4,
+                         mu1,mu2,mu3,mu4,
+                         sigma1,sigma2,sigma3,sigma4)
+  para.df<-as.data.frame(para.df)
+  return(para.df)
+}
+
+
+set.seed(1411)
+para.df<-HMM.boot(x=data1$LogReturn,nboot=50,mod=mod4s_n)
+round(sapply(para.df,sd),digits=4)
+round(sapply(para.df,quantile,probs=c(0.05,0.95)),digits=3)
+
+library(hsmm)
+# PARAMETRIC BOOTSTRAP
+HSMM.boot<-function(x,mod,nboot){
+  N<-length(x)
+  Pi0<-mod$para$tpm
+  delta0<-mod$para$pi
+  v0<-mod$para$rd$r
+  pi0<-mod$para$rd$pi
+  mu0<-mod$para$od$mean
+  sigma0<-sqrt(mod$para$od$var)
+  xstar<-matrix(rep(0,times=N*nboot),nrow=N,ncol=nboot,byrow=T)
+  
+  for(i in 1:nboot){
+    print(paste0('xstar loop =',i))
+    xstar[,i]<-hsmm.sim(n=N,od='norm',rd='nbinom',pi.par=delta0,
+                        tpm.par=Pi0,od.par=list(mean=mu0,var=(sigma0)^2),rd.par=list(r=v0,pi=pi0),seed=i)$obs[1:N]
+  }
+  
+  a12<-c()
+  a13<-c()
+  a14<-c()
+  a21<-c()
+  a23<-c()
+  a24<-c()
+  a31<-c()
+  a32<-c()
+  a34<-c()
+  a41<-c()
+  a42<-c()
+  a43<-c()
+  delta1<-c()
+  delta2<-c()
+  delta3<-c()
+  delta4<-c()
+  v1<-c()
+  v2<-c()
+  v3<-c()
+  v4<-c()
+  pi1<-c()
+  pi2<-c()
+  pi3<-c()
+  pi4<-c()
+  mu1<-c()
+  mu2<-c()
+  mu3<-c()
+  mu4<-c()
+  sigma1<-c()
+  sigma2<-c()
+  sigma3<-c()
+  sigma4<-c()
+  
+  for(k in 1:nboot){
+    print(paste0('model fit loop =',k))
+    x<-xstar[,k]
+    mod4s<-hsmm(x =x,tpm.par = Pi0,pi.par = delta0,od = 'norm',od.par=list(mean=mu0,var=(sigma0)^2),rd.par=list(r=v0,pi=pi0),
+                          rd='nbinom',prt=F,Q.max=1000,epsilon=1e-06,r.lim=c(1e-06,200))
+    delta1[k]<-mod4s$para$pi[1]
+    delta2[k]<-mod4s$para$pi[2]
+    delta3[k]<-mod4s$para$pi[3]
+    delta4[k]<-mod4s$para$pi[4]
+    a12[k]<-mod4s$para$tpm[1,2]
+    a13[k]<-mod4s$para$tpm[1,3]
+    a14[k]<-mod4s$para$tpm[1,4]
+    a21[k]<-mod4s$para$tpm[2,1]
+    a23[k]<-mod4s$para$tpm[2,3]
+    a24[k]<-mod4s$para$tpm[2,4]
+    a31[k]<-mod4s$para$tpm[3,1]
+    a32[k]<-mod4s$para$tpm[3,2]
+    a34[k]<-mod4s$para$tpm[3,4]
+    a41[k]<-mod4s$para$tpm[4,1]
+    a42[k]<-mod4s$para$tpm[4,2]
+    a43[k]<-mod4s$para$tpm[4,3]
+    v1[k]<-mod4s$para$rd$r[1]
+    v2[k]<-mod4s$para$rd$r[2]
+    v3[k]<-mod4s$para$rd$r[3]
+    v4[k]<-mod4s$para$rd$r[4]
+    pi1[k]<-mod4s$para$rd$pi[1]
+    pi2[k]<-mod4s$para$rd$pi[2]
+    pi3[k]<-mod4s$para$rd$pi[3]
+    pi4[k]<-mod4s$para$rd$pi[4]
+    mu1[k]<-mod4s$para$od$mean[1]
+    mu2[k]<-mod4s$para$od$mean[2]
+    mu3[k]<-mod4s$para$od$mean[3]
+    mu4[k]<-mod4s$para$od$mean[4]
+    sigma1[k]<-sqrt(mod4s$para$od$var[1])
+    sigma2[k]<-sqrt(mod4s$para$od$var[2])
+    sigma3[k]<-sqrt(mod4s$para$od$var[3])
+    sigma4[k]<-sqrt(mod4s$para$od$var[4])
+  }
+  para.df<-cbind(delta1,delta2,delta3,delta4,
+                 a12,a13,a14,
+                 a21,a23,a24,
+                 a31,a32,a34,
+                 a41,a42,a43,
+                 v1,v2,v3,v4,
+                 pi1,pi2,pi3,pi4,
+                 mu1,mu2,mu3,mu4,
+                 sigma1,sigma2,sigma3,sigma4)
+  para.df<-as.data.frame(para.df)
+  return(para.df)
+}
